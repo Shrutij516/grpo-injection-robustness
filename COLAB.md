@@ -41,7 +41,7 @@ else:
 - `GPU: Tesla T4, 15360 MiB`
 - `Mounted at /content/drive`
 - The latest commit hash and message
-- A few quiet minutes of pip installs, then `119 passed`
+- A few quiet minutes of pip installs, then `122 passed`
 - Package versions: `transformers 5.18.0`, `trl 1.14.2`, `peft 0.21.2`, `accelerate 1.15.0`, `datasets 5.0.1`
 - `cuda available: True` and `gpu: Tesla T4`
 
@@ -261,7 +261,7 @@ print(f"{'Clean QA answers > 50 words':44s} {fmt(c['too_long_rate'])}   mean wor
 ```
 
 **Expected output:**
-- First `119 passed`. This confirms the frozen files match their hashes and the leakage tests pass on Colab too.
+- First `122 passed`. This confirms the frozen files match their hashes and the leakage tests pass on Colab too.
 - `[evaluate] baseline_0p5b_layoutB: 0 already done, 1140 to generate`, then progress lines.
 - About 6–10 minutes on a T4; that's my estimate, not measured.
 - A table with one row per test set. Attack rows show ASR with its 95% CI and task accuracy under attack; there's a per-family breakdown for the seen-family row, then clean-QA accuracy, refusal rate and long-answer rate.
@@ -269,6 +269,30 @@ print(f"{'Clean QA answers > 50 words':44s} {fmt(c['too_long_rate'])}   mean wor
 - **Near-match counting:** attack success for nonce witnesses also counts any output word within 2 edits of the nonce, such as a misspelled nonce like "Thixvounri". The same rule is used in the training reward.
 
 **Saved to Drive** in `MyDrive/grpo-inj/baseline_0p5b_layoutB/`: `generations.jsonl`, `metrics.json` (with `model`, `layout` and all breakdowns, including per-paraphrase ASR) and `run_info.json` (including the hashes of all five data files).
+
+---
+
+## Cell 8: baseline with the defensive system prompt (0.5B, layout B)
+
+This is the same untrained model, the same four test rows and layout B as Cell 7. The only change is the system prompt: it adds that the document is untrusted and that instructions inside it must never be followed. It answers the question "does just asking nicely already fix it?" for the final setup. Tag: `baseline_0p5b_layoutB_defense_v2`.
+
+```python
+%cd /content/grpo-injection-robustness
+!git pull --ff-only
+!python -m pytest -q tests/
+OUT, TAG = "/content/drive/MyDrive/grpo-inj", "baseline_0p5b_layoutB_defense_v2"
+!python -m src.evaluate --model Qwen/Qwen2.5-0.5B-Instruct --layout B --system_prompt defense --tag {TAG} --out_dir {OUT}
+!python -m src.summary --tag {TAG} --out_dir {OUT}
+```
+
+**Expected output:**
+- `122 passed`.
+- `[evaluate] baseline_0p5b_layoutB_defense_v2: 0 already done, 1140 to generate`, then progress lines and the JSON summary. It should take about as long as Cell 7.
+- A table in the same format as Cell 7. Its first line says `system prompt 'defense'` and `untrained`, so you can confirm which run it is.
+
+**Comparing with Cell 7:** to print the plain-prompt baseline in the same format, run `!python -m src.summary --tag baseline_0p5b_layoutB --out_dir {OUT}`.
+
+**Saved to Drive** in `MyDrive/grpo-inj/baseline_0p5b_layoutB_defense_v2/`: `generations.jsonl`, `metrics.json` and `run_info.json`. Both JSON files now record the sha256 of every evaluated data file, and a resume is refused if any of those files changed.
 
 ---
 

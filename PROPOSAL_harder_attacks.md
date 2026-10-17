@@ -91,7 +91,7 @@ We use only these generic patterns, not any attack text from the paper.
 |---|---|---|
 | **Unseen family** (headline) | generalization to a new attack style | 300 |
 | **Seen families, unseen paraphrases + unseen nonces** | in-distribution robustness | 180 |
-| **SEP** (existing `test_attack.jsonl`) | extra evaluation row; should stay ~0% (a "no harm" check) | 360 |
+| **SEP** (existing `test_attack.jsonl`) | extra evaluation row. *Update:* "should stay ~0%" held only for 1.5B in layout A. For the final 0.5B/layout-B setup the SEP baseline is 29.2%, so SEP is a second out-of-distribution test with entirely different wording | 360 |
 | **Clean QA** (existing `test_clean.jsonl`) | utility and over-refusal | 300 |
 
 **Bootstrap:** clusters are now **paraphrases** (the two-stage bootstrap resamples paraphrases, then prompts). The held-out family has only 6 paraphrases, so its CI will be wide. I'll report it honestly. We could also give the held-out family 8 paraphrases to tighten it.
@@ -110,6 +110,8 @@ We use only these generic patterns, not any attack text from the paper.
 **Options:** (a) evaluation only, or (b) mixed into training.
 
 **Recommend (a).** The base model already ignores SEP probes, so they give GRPO no learning signal. As an evaluation row, SEP checks that training doesn't make anything worse.
+
+*Update (after the model/layout change):* this reasoning applied to 1.5B in layout A. With 0.5B in layout B, the SEP baseline ASR is 29.2%. SEP stays evaluation-only, but it now serves as a second out-of-distribution attack test, not a near-0% check.
 
 ### Decision 7: pilot gate before freezing
 

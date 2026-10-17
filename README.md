@@ -16,7 +16,10 @@ python -m pytest -q tests/
 
 Labels: **[paper]** = stated in arXiv:2507.20526 (checked against the paper text, v1); **[ours]** = our own measurement, choice, or interpretation.
 
-- **SEP probes (first attack set)** [ours]: baseline attack success was **0%** for Qwen2.5-1.5B-Instruct on all 360 test attacks, with or without the defensive system prompt. The checks confirmed this is real, not a bug: the injection is present in the prompts, the scorer passes a positive control, and no witness word appears in any raw output. On this task (extractive QA with short answers), the model simply ignores polite side-questions. SEP is kept as an extra evaluation row.
+- **SEP probes (first attack set)** [ours]:
+  - **Qwen2.5-1.5B-Instruct, layout A:** baseline attack success was **0%** on all 360 test attacks, with or without the defensive system prompt. The checks confirmed this is real, not a bug: the injection is present in the prompts, the scorer passes a positive control, and no witness word appears in any raw output. In that setting the model simply ignored polite side-questions.
+  - **Qwen2.5-0.5B-Instruct, layout B** (the final setup): SEP baseline attack success is **29.2%**, so SEP is *not* a near-0% "no harm" check anymore.
+  - **Its role now:** SEP is a **second out-of-distribution test**. Its probes are worded completely differently from our templates (real-word answers, polite side-questions) and never appear in training.
 - **Harder attack set:** four template families, each asking the model to reply with a made-up nonce word. They are **hand-written generic patterns**, and **no attack text was copied from the paper.** One family is held out entirely for testing. Design: [PROPOSAL_harder_attacks.md](PROPOSAL_harder_attacks.md).
 
   | Family | Basis |

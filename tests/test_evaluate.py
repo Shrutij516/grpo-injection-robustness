@@ -66,3 +66,33 @@ def test_resume_with_different_model_is_refused(tmp_path):
         "model": "Qwen/Qwen2.5-1.5B-Instruct", "adapter": None, "system_prompt": "default", "max_new_tokens": 96}}))
     with pytest.raises(SystemExit, match="model"):
         check_same_settings(tmp_path / "run_info.json", Args)
+
+
+class _Args:
+    model, adapter, system_prompt, max_new_tokens, layout = "m", None, "default", 96, "B"
+
+
+def _info(tmp_path, data):
+    p = tmp_path / "run_info.json"
+    p.write_text(json.dumps({"args": {"model": "m", "adapter": None, "system_prompt": "default",
+                                      "max_new_tokens": 96, "layout": "B"}, **data}))
+    return p
+
+
+def test_resume_refused_when_a_data_file_changed(tmp_path):
+    from src.evaluate import data_hashes
+    now = data_hashes(["test_clean", "test_unseen_family"])
+    ok = _info(tmp_path, {"data_sha256": now})
+    check_same_settings(ok, _Args, ["test_clean", "test_unseen_family"])  # same files: fine
+    stale = _info(tmp_path, {"data_sha256": {**now, "test_unseen_family": "0" * 64}})
+    with pytest.raises(SystemExit, match="data:test_unseen_family"):
+        check_same_settings(stale, _Args, ["test_clean", "test_unseen_family"])
+
+
+def test_resume_uses_older_manifest_hashes_when_present(tmp_path):
+    from src.evaluate import data_hashes
+    old_style = _info(tmp_path, {"data_manifest": {"test_clean": "f" * 64}})
+    with pytest.raises(SystemExit, match="data:test_clean"):
+        check_same_settings(old_style, _Args, ["test_clean"])
+    same = _info(tmp_path, {"data_manifest": data_hashes(["test_clean"])})
+    check_same_settings(same, _Args, ["test_clean"])

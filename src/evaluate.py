@@ -13,6 +13,7 @@ Examples:
 """
 
 import argparse
+import hashlib
 import json
 import os
 import platform
@@ -214,12 +215,30 @@ def run_header(args):
     return {"tag": args.tag, **{k: getattr(args, k) for k in RESUME_KEYS}}
 
 
-def check_same_settings(info_path, args):
+def data_hashes(splits):
+    """sha256 of each evaluated data file, read from disk (covers pilot too)."""
+    return {s: hashlib.sha256((DATA_DIR / f"{s}.jsonl").read_bytes()).hexdigest() for s in splits}
+
+
+def check_same_settings(info_path, args, splits=None):
+    """Refuse to resume a tag whose saved generations came from different
+    settings or from a different version of any data file being evaluated
+    (row ids would match but prompts would not)."""
     if not info_path.exists():
         return
-    prev = json.loads(info_path.read_text())["args"]
-    prev = {**RESUME_DEFAULTS, **prev}
+    info = json.loads(info_path.read_text())
+    prev = {**RESUME_DEFAULTS, **info["args"]}
     diff = {k: (prev.get(k), getattr(args, k)) for k in RESUME_KEYS if prev.get(k) != getattr(args, k)}
+    if splits:
+        # Older runs stored only the merged manifest hashes under "data_manifest".
+        prev_data = info.get("data_sha256") or info.get("data_manifest") or {}
+        now = data_hashes(splits)
+        for s in splits:
+            if s in prev_data and prev_data[s] != now[s]:
+                diff[f"data:{s}"] = (prev_data[s][:12], now[s][:12])
+            elif s not in prev_data:
+                print(f"[evaluate] warning: {info_path.parent} has no recorded hash for {s}; "
+                      "cannot verify it was made from the current file")
     if diff:
         raise SystemExit(f"[evaluate] {info_path.parent} was made with different settings "
                          f"(previous, now): {diff}. Use a new --tag.")
@@ -244,10 +263,11 @@ def main():
     out.mkdir(parents=True, exist_ok=True)
     gen_path = out / "generations.jsonl"
     done = read_done(gen_path)
-    check_same_settings(out / "run_info.json", args)
+    splits = args.splits.split(",")
+    check_same_settings(out / "run_info.json", args, splits)
 
     todo = []
-    for split in args.splits.split(","):
+    for split in splits:
         for r in load_rows(split, args.limit):
             if r["id"] not in done:
                 todo.append((split, r))
@@ -256,7 +276,8 @@ def main():
     if todo:
         device, dtype = pick_device()
         tok, model = load_model(args.model, args.adapter, device, dtype)
-        (out / "run_info.json").write_text(json.dumps(run_info(args, device, dtype), indent=2))
+        info = {**run_info(args, device, dtype), "data_sha256": data_hashes(splits)}
+        (out / "run_info.json").write_text(json.dumps(info, indent=2))
         system = SYSTEM_PROMPTS[args.system_prompt]
         # Similar-length prompts per batch -> less padding -> faster.
         todo.sort(key=lambda sr: len(sr[1]["document"]))
@@ -282,9 +303,10 @@ def main():
                 n = min(i + args.batch_size, len(todo))
                 print(f"[evaluate] {n}/{len(todo)} ({time.time() - t0:.0f}s)", flush=True)
 
-    wanted = {r["id"] for s in args.splits.split(",") for r in load_rows(s, args.limit)}
+    wanted = {r["id"] for s in splits for r in load_rows(s, args.limit)}
     metrics = compute_metrics([g for g in done.values() if g["id"] in wanted])
     metrics.update(run_header(args))
+    metrics["data_sha256"] = data_hashes(splits)
     (out / "metrics.json").write_text(json.dumps(metrics, indent=2) + "\n")
     brief = json.loads(json.dumps(metrics))
     for v in brief.values():  # long per-probe/per-template tables stay in metrics.json
