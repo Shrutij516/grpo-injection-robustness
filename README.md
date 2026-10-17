@@ -4,6 +4,7 @@ GRPO + LoRA fine-tuning of Qwen2.5-Instruct to resist indirect prompt injection 
 
 - Plan: [PLAN.md](PLAN.md)
 - Data sources, verified fields, build decisions: [DATA_NOTES.md](DATA_NOTES.md)
+- Step-by-step Colab cells: [COLAB.md](COLAB.md)
 
 Status: steps 1–3 done (environment; frozen data, rewards, stats, tests; evaluation script).
 
