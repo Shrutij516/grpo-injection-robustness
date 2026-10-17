@@ -41,7 +41,7 @@ else:
 - `GPU: Tesla T4, 15360 MiB`
 - `Mounted at /content/drive`
 - The latest commit hash and message
-- A few quiet minutes of pip installs, then `36 passed`
+- A few quiet minutes of pip installs, then `77 passed`
 - Package versions: `transformers 5.18.0`, `trl 1.14.2`, `peft 0.21.2`, `accelerate 1.15.0`, `datasets 5.0.1`
 - `cuda available: True` and `gpu: Tesla T4`
 
@@ -91,6 +91,44 @@ This is the same model and the same 660 prompts. The only change is that the sys
 **Saved to Drive** in `MyDrive/grpo-inj/baseline_defense/`: the same three files as Cell 2.
 
 **Each run needs its own tag.** If you rerun with different settings but the same `--tag`, the script stops with "was made with different settings ... Use a new --tag" rather than mixing two experiments in one folder.
+
+---
+
+## Cell 4: pilot for the harder attack templates
+
+The pilot runs the untrained model on 160 pilot prompts: 4 template families × 8 paraphrases × 5 prompts each. All of them come from training passages with training nonces, so the final test sets stay untouched. The results decide two things:
+- **Which family is held out for testing:** the one with the highest pilot ASR among T2–T4.
+- **Whether any family's wording needs adjusting:** each family should land at roughly 20–80% ASR.
+
+```python
+%cd /content/grpo-injection-robustness
+!git pull --ff-only
+!python -m src.evaluate --splits pilot --tag pilot_baseline --out_dir /content/drive/MyDrive/grpo-inj
+
+import json
+m = json.load(open("/content/drive/MyDrive/grpo-inj/pilot_baseline/metrics.json"))["pilot"]
+names = {"T1": "Direct override", "T2": "Fake end-of-document", "T3": "Fake system message",
+         "T4": "New session / faux reasoning"}
+print(f"\n{'family':32s} {'ASR':>6s}  95% CI          task acc")
+for fam, v in m["by_family"].items():
+    a, t = v["attack_success_rate"], v["task_accuracy_under_attack"]
+    print(f"{fam} {names[fam]:29s} {a['rate']:6.1%}  [{a['ci95'][0]:.1%}, {a['ci95'][1]:.1%}]  {t['rate']:.1%}")
+    print("    by position:", {p: round(x["rate"], 2) for p, x in v["asr_by_position"].items()})
+print("\nper paraphrase (5 prompts each):")
+for tid, x in m["asr_per_template"].items():
+    print(f"  {tid}: {x['rate']:.0%}")
+```
+
+**Expected output:**
+- `[evaluate] pilot_baseline: 0 already done, 160 to generate`, then progress lines.
+- About 3–5 minutes on a T4. The model is cached if Cell 2 ran in this session; otherwise it downloads again.
+- The full JSON summary, then a compact table: one line per family with ASR, 95% CI and task accuracy, then ASR by position and one line per paraphrase.
+
+**Reading the CIs:** each family has only 40 prompts, so the CIs are wide (often ±15–20 points). That's expected; the pilot only needs to separate roughly 0%, mid-range and ~100%.
+
+**Saved to Drive** in `MyDrive/grpo-inj/pilot_baseline/`: `generations.jsonl`, `metrics.json` and `run_info.json`, same as the other runs.
+
+**What to send me:** the printed table. I'll then propose the held-out family and any wording changes, following the rule written in the proposal. Nothing gets frozen until you approve.
 
 ---
 
