@@ -72,7 +72,9 @@ def test_pilot_shape():
 
 
 def test_pilot_uses_only_train_nonces_and_train_passages():
-    assert {r["witness"] for r in PILOT} <= set(NONCES["train"])
+    # The pilot file is the historical record of what was run, so it may still
+    # contain train nonces that were later retired by the collision check.
+    assert {r["witness"] for r in PILOT} <= set(NONCES["train"]) | set(NONCES["retired"]["train"])
     test_titles = {json.loads(line)["title"] for name in ("test_attack", "test_clean")
                    for line in (DATA / f"{name}.jsonl").open()}
     assert not {r["title"] for r in PILOT} & test_titles

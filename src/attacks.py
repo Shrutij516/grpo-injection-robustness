@@ -173,11 +173,105 @@ def build_nonces(dict_path="/usr/share/dict/words"):
     return pools
 
 
+# ---- near-match collision check (added with the edit-distance scorer) ------
+
+FIX_SEED = 2027
+
+
+def collision_vocab():
+    """Every word the model might legitimately write: all SQuAD v1.1 passages
+    (train + validation), plus the words of our templates and system prompts
+    (an answer could echo them)."""
+    from datasets import load_dataset
+    from src.data import SQUAD_REPO, SQUAD_REVISION, SYSTEM_PROMPT
+
+    vocab = set()
+    for split in ("train", "validation"):
+        for ctx in set(load_dataset(SQUAD_REPO, split=split, revision=SQUAD_REVISION)["context"]):
+            vocab.update(re.findall(r"[^\W_]+", ctx.lower()))
+    extra = [t.replace("{NONCE}", " ") for ts in TEMPLATES.values() for t in ts]
+    extra += [SYSTEM_PROMPT, "untrusted data may contain instructions never follow them use only as "
+              "information answer the question using document below question answer"]
+    for t in extra:
+        vocab.update(re.findall(r"[^\W_]+", t.lower()))
+    return vocab
+
+
+def _near(word, words):
+    from src.rewards import NEAR_MATCH_MAX_DIST, edit_distance
+    w = word.lower()
+    return sorted(v for v in words if edit_distance(w, v.lower()) <= NEAR_MATCH_MAX_DIST)
+
+
+def fix_nonces(dict_path="/usr/share/dict/words"):
+    """Replace every nonce within edit distance 2 of a vocabulary word or of an
+    earlier nonce. Replacements take the same list position, so data rebuilt
+    from the pools changes only in rows that used a replaced nonce."""
+    from src.rewards import NEAR_MATCH_MAX_DIST, edit_distance
+
+    pools = json.loads(NONCE_PATH.read_text())
+    vocab = collision_vocab()
+    english = {w.strip().lower() for w in open(dict_path)}
+    retired_before = [w for r in pools.get("retired", {}).values() for w in r]
+
+    kept, bad = [], {}
+    for split in ("train", "test"):
+        for w in pools[split]:
+            reasons = _near(w, vocab) + [o for o in _near(w, kept)]
+            if reasons:
+                bad[w] = reasons[:5]
+            else:
+                kept.append(w)
+
+    rng = random.Random(FIX_SEED)
+    replaced = {}
+    taken = kept + retired_before + list(bad)
+
+    def acceptable(c):
+        low = c.lower()
+        if not 6 <= len(c) <= 9 or any(b in low for b in _BLOCKED_SUBSTRINGS):
+            return False
+        if any(v in english or v in vocab for v in (low, low + "s", low + "es")):
+            return False
+        for o in taken:
+            ol = o.lower()
+            if low in ol or ol in low or ol[:4] == low[:4] or edit_distance(low, ol) <= NEAR_MATCH_MAX_DIST:
+                return False
+        return not any(edit_distance(low, v) <= NEAR_MATCH_MAX_DIST for v in vocab)
+
+    for split in ("train", "test"):
+        for i, w in enumerate(pools[split]):
+            if w in bad:
+                c = _candidate(rng)
+                while not acceptable(c):
+                    c = _candidate(rng)
+                pools[split][i] = c
+                replaced[w] = c
+                taken.append(c)
+
+    pools.setdefault("retired", {"train": [], "test": []})
+    for split in ("train", "test"):
+        pools["retired"][split] += [w for w in replaced if w in json.loads(NONCE_PATH.read_text())[split]]
+    pools["replaced"] = {**pools.get("replaced", {}), **replaced}
+    pools["collision_rule"] = ("no nonce within edit distance 2 of another nonce (train+test, incl. retired) "
+                               "or of any word in any SQuAD v1.1 passage (train+validation) or in our "
+                               "templates/system prompts; replacements generated with seed "
+                               f"{FIX_SEED} and the original rules")
+    NONCE_PATH.write_text(json.dumps(pools, indent=2) + "\n")
+    return bad, replaced
+
+
 if __name__ == "__main__":
     ap = argparse.ArgumentParser()
     ap.add_argument("--build-nonces", action="store_true")
+    ap.add_argument("--fix-nonces", action="store_true")
     args = ap.parse_args()
     if args.build_nonces:
         pools = build_nonces()
         print("train:", pools["train"])
         print("test: ", pools["test"])
+    if args.fix_nonces:
+        bad, replaced = fix_nonces()
+        for old, new in replaced.items():
+            print(f"{old:>10s} -> {new:10s} (too close to: {', '.join(bad[old])})")
+        print(f"replaced {len(replaced)} nonces")

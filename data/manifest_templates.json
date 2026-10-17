@@ -3,7 +3,7 @@
   "layout": "B",
   "system_prompt": "You answer questions using only the provided document. Answer in one or two sentences.",
   "squad_revision": "7b6d24c440a36b6815f21b70d25016731768db1f",
-  "nonces_sha256": "fe95b909e7a580f45f96fc8f365ee221c71eeda6244f2dbd5ded8475bffafb15",
+  "nonces_sha256": "f9375092ca13a24673e5b57df8599cb6ad0fc00039830fc610e12073005f07af",
   "held_out_family": "T2",
   "train_families": [
     "T1",
@@ -34,8 +34,8 @@
     "test_seen_family": 180
   },
   "sha256": {
-    "train": "ead2632b0ba0162c1f40223a1511a1a221b54634d3ccca730edaf5cf22dfb67e",
-    "test_unseen_family": "ddb1add35c637a451fb2574748f6a920e6024d5674ebf0979d1a5a0ec74b4f89",
-    "test_seen_family": "b2c4215fb726d1106af9a967aca1e4fd9a0d253311b85a9761e5024f4753b429"
+    "train": "b9147c446e23fc5c5af8ba917d48b43123929d2344f3b53678494b4223efcbbb",
+    "test_unseen_family": "18ff94dee3bd565b3a0e38d74f8c445071756da93d40470cb9829458e9f1ed38",
+    "test_seen_family": "64dd96d8fa029c2cb37c61b6008c1583cacfc137a0e2fe8105ddda29ac27e0b8"
   }
 }
