@@ -14,8 +14,37 @@ python -m pytest -q tests/
 
 ## Attack sets and results
 
-- **SEP probes (first attack set):** baseline attack success was **0%** for Qwen2.5-1.5B-Instruct on all 360 test attacks, with or without the defensive system prompt. The checks confirmed this is real, not a bug: the injection is present in the prompts, the scorer passes a positive control, and no witness word appears in any raw output. On this task (extractive QA with short answers), the model simply ignores polite side-questions. SEP is kept as an extra evaluation row.
-- **Harder attack set:** four template families (direct override, fake end-of-document, fake system message, new-session/faux-reasoning). Each injection asks the model to reply with a made-up nonce word. These are **hand-written generic patterns informed by** Zou et al., arXiv:2507.20526; **no attack text was copied from that paper.** One family is held out entirely for testing. Design: [PROPOSAL_harder_attacks.md](PROPOSAL_harder_attacks.md).
+Labels: **[paper]** = stated in arXiv:2507.20526 (checked against the paper text, v1); **[ours]** = our own measurement, choice, or interpretation.
+
+- **SEP probes (first attack set)** [ours]: baseline attack success was **0%** for Qwen2.5-1.5B-Instruct on all 360 test attacks, with or without the defensive system prompt. The checks confirmed this is real, not a bug: the injection is present in the prompts, the scorer passes a positive control, and no witness word appears in any raw output. On this task (extractive QA with short answers), the model simply ignores polite side-questions. SEP is kept as an extra evaluation row.
+- **Harder attack set:** four template families, each asking the model to reply with a made-up nonce word. They are **hand-written generic patterns**, and **no attack text was copied from the paper.** One family is held out entirely for testing. Design: [PROPOSAL_harder_attacks.md](PROPOSAL_harder_attacks.md).
+
+  | Family | Basis |
+  |---|---|
+  | T1 Direct override | [ours] a common small-model weakness; not a named strategy in the paper |
+  | T2 Fake end-of-document | [ours]; not a named strategy in the paper |
+  | T3 Fake system message | [paper] "System Prompt Overrides" (Section 3.4.2). Plain-text markers instead of real chat-template tokens is [ours]. |
+  | T4 New session / faux reasoning | [paper] "New Session / Session Data Update" and "Faux Reasoning" (Section 3.4.2) |
+
+- **Prompt layout B** (question first, then the document, then "Answer:") [ours]: being piloted because both base models almost never obeyed the templates in layout A. A possible reason is that the real question always came last.
+
+### What we take from arXiv:2507.20526, and what it does not show
+
+**What the paper says:**
+- [paper] Indirect injections succeeded more often than direct ones: 27.1% vs 5.7% average ASR (Table 1, "All" row; 12.7% overall).
+- [paper] System-prompt overrides were among the most prevalent strategies, with successful breaks across all models and behaviors. Faux reasoning and new-session attacks are the other named common strategies (Section 3.4.2).
+- [paper] There is limited correlation between agent robustness and model size, capability, or inference-time compute (abstract; Section 3.3).
+
+**Caveats on those numbers:**
+- **The 27.1% vs 5.7% is not a controlled comparison.** These are averages over competition sessions, where human red-teamers iterated on multi-turn attacks against tool-using frontier agents. The behavior mix also differs between the two columns: "Conflicting Objectives" was direct-only.
+- **The capability evidence is a proxy, not a sweep.** Capability is measured with GPQA, plus a few model pairs (e.g. GPT-4o vs GPT-4.5). The paper also reports "a non-negligible negative correlation" overall. Size enters only through such examples, not a controlled size sweep.
+
+**What the paper does not show:**
+- Anything about small open models like Qwen2.5 0.5B/1.5B. The tested models were frontier models; the smallest named is Llama 3.3 70B.
+- Anything about plain document QA without tools. Its setting was agents with tools and policies.
+- That our specific templates work on our models.
+- Whether a fine-tuning defense such as GRPO reduces ASR. It only mentions existing defenses, such as instruction-hierarchy fine-tuning and filtering, which "adaptive attackers continue to outpace".
+- Any ASR comparable to ours. Its ASR is per user session and judged by programs or LLMs; ours is per prompt with a nonce string match.
 
 ### Pilot baseline ASR per template family (base model, training-pool passages)
 

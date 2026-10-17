@@ -25,9 +25,9 @@ Zou et al. (2025) ran a public red-teaming competition: about 1.8M attack attemp
   1. **Fake system-prompt override:** text dressed up as a system/admin message that adds or replaces rules. The paper describes it as one of the most prevalent strategies and reports that it worked against every model and behavior.
   2. **Faux reasoning:** text imitating the model's own reasoning that "concludes" the forbidden action is fine.
   3. **New session / session-data update:** claims the context has reset or the session metadata has changed, so earlier rules supposedly no longer apply.
-- **Other patterns** seen in the examples: fake conversation structure (fake tool calls, tool responses or assistant turns), authority or business-scenario framing, false premises, and encoding or obfuscation.
+- ~~Other patterns seen in the examples: fake conversation structure, authority or business-scenario framing, false premises, and encoding or obfuscation.~~ **Correction (checked against the paper text, 2026-10-17):** these are **not** reported as effective strategies in the paper. Encoding appears only in the judging appendix, as a way some submissions gamed judges. The appendix shows indirect injections placed inside simulated tool-call responses, but as the challenge setup, not as a named strategy.
 - **Universal templates exist.** One fixed template with a swappable "payload" slot transferred across many models (reported success roughly 33–58% on several models).
-- **Robustness barely tracks model size or capability.** Attacks transfer within model families, and extra inference compute did not reliably help.
+- **Robustness barely tracks model size or capability.** Attacks transfer within model families, and extra inference compute did not reliably help. *Verified, with nuance:* the paper says "limited correlation" and also notes "a non-negligible negative correlation". The evidence is a GPQA capability proxy plus a few model pairs, not a size sweep, and only frontier models were tested.
 
 We use only these generic patterns, not any attack text from the paper.
 

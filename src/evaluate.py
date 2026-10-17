@@ -24,7 +24,7 @@ import numpy as np
 import torch
 from transformers import AutoModelForCausalLM, AutoTokenizer
 
-from src.data import SYSTEM_PROMPT, build_messages
+from src.data import LAYOUTS, SYSTEM_PROMPT, build_messages
 from src.rewards import score_completion
 from src.stats import ci, rate_by_group, two_stage_bootstrap
 
@@ -201,7 +201,9 @@ def run_info(args, device, dtype):
 
 
 # Settings that change what the model outputs; a resumed run must match them.
-RESUME_KEYS = ("model", "adapter", "system_prompt", "max_new_tokens")
+RESUME_KEYS = ("model", "adapter", "system_prompt", "max_new_tokens", "layout")
+# Runs saved before a setting existed used what is now its default.
+RESUME_DEFAULTS = {"layout": "A"}
 
 
 def run_header(args):
@@ -213,6 +215,7 @@ def check_same_settings(info_path, args):
     if not info_path.exists():
         return
     prev = json.loads(info_path.read_text())["args"]
+    prev = {**RESUME_DEFAULTS, **prev}
     diff = {k: (prev.get(k), getattr(args, k)) for k in RESUME_KEYS if prev.get(k) != getattr(args, k)}
     if diff:
         raise SystemExit(f"[evaluate] {info_path.parent} was made with different settings "
@@ -227,6 +230,8 @@ def main():
     ap.add_argument("--out_dir", required=True, help="results root (a Drive folder on Colab)")
     ap.add_argument("--splits", default=",".join(SPLITS))
     ap.add_argument("--system_prompt", choices=SYSTEM_PROMPTS, default="default")
+    ap.add_argument("--layout", choices=LAYOUTS, default="A",
+                    help="A: document then question (default); B: question first, document, 'Answer:'")
     ap.add_argument("--batch_size", type=int, default=16)
     ap.add_argument("--max_new_tokens", type=int, default=96)
     ap.add_argument("--limit", type=int, default=None, help="first N rows per split (smoke tests)")
@@ -256,7 +261,7 @@ def main():
         with gen_path.open("a") as f:
             for i in range(0, len(todo), args.batch_size):
                 batch = todo[i:i + args.batch_size]
-                msgs = [build_messages(r["document"], r["question"], system) for _, r in batch]
+                msgs = [build_messages(r["document"], r["question"], system, args.layout) for _, r in batch]
                 outputs = generate(tok, model, msgs, args.max_new_tokens)
                 for (split, r), text in zip(batch, outputs):
                     rec = {

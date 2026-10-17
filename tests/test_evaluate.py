@@ -42,7 +42,7 @@ def test_read_done_tolerates_half_written_last_line(tmp_path):
 
 def test_resume_with_different_settings_is_refused(tmp_path):
     class Args:
-        model, adapter, system_prompt, max_new_tokens = "m", None, "default", 96
+        model, adapter, system_prompt, max_new_tokens, layout = "m", None, "default", 96, "A"
     (tmp_path / "run_info.json").write_text(json.dumps({"args": {
         "model": "m", "adapter": None, "system_prompt": "defense", "max_new_tokens": 96}}))
     with pytest.raises(SystemExit):
@@ -53,7 +53,7 @@ def test_metrics_header_records_model_and_resume_keys():
     from src.evaluate import RESUME_KEYS, run_header
 
     class Args:
-        tag, model, adapter, system_prompt, max_new_tokens = "t", "Qwen/Qwen2.5-0.5B-Instruct", None, "default", 96
+        tag, model, adapter, system_prompt, max_new_tokens, layout = "t", "Qwen/Qwen2.5-0.5B-Instruct", None, "default", 96, "A"
     h = run_header(Args)
     assert h["model"] == "Qwen/Qwen2.5-0.5B-Instruct" and h["tag"] == "t"
     assert "model" in RESUME_KEYS and set(RESUME_KEYS) <= set(h)
@@ -61,7 +61,7 @@ def test_metrics_header_records_model_and_resume_keys():
 
 def test_resume_with_different_model_is_refused(tmp_path):
     class Args:
-        model, adapter, system_prompt, max_new_tokens = "Qwen/Qwen2.5-0.5B-Instruct", None, "default", 96
+        model, adapter, system_prompt, max_new_tokens, layout = "Qwen/Qwen2.5-0.5B-Instruct", None, "default", 96, "A"
     (tmp_path / "run_info.json").write_text(json.dumps({"args": {
         "model": "Qwen/Qwen2.5-1.5B-Instruct", "adapter": None, "system_prompt": "default", "max_new_tokens": 96}}))
     with pytest.raises(SystemExit, match="model"):

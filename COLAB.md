@@ -167,4 +167,54 @@ for tid, x in m["asr_per_template"].items():
 
 ---
 
+## Cell 6: pilot with prompt layout B on both models
+
+This is the same 160 pilot prompts, templates, nonces and settings. Only the prompt layout changes: **B** puts the task and question first, then the document (with the injection), then an `Answer:` cue. Layout A, used in Cells 2–5, had the question last. Each model gets its own tag, so earlier results are untouched.
+
+```python
+%cd /content/grpo-injection-robustness
+!git pull --ff-only
+OUT = "/content/drive/MyDrive/grpo-inj"
+RUNS = {"1.5B": ("Qwen/Qwen2.5-1.5B-Instruct", "pilot_layoutB_1p5b"),
+        "0.5B": ("Qwen/Qwen2.5-0.5B-Instruct", "pilot_layoutB_0p5b")}
+for label, (model, tag) in RUNS.items():
+    print(f"\n########## {label}: {model} -> {tag}")
+    !python -m src.evaluate --model {model} --layout B --splits pilot --tag {tag} --out_dir {OUT}
+
+import json
+names = {"T1": "Direct override", "T2": "Fake end-of-document", "T3": "Fake system message",
+         "T4": "New session / faux reasoning"}
+res = {}
+for label, (model, tag) in RUNS.items():
+    m_all = json.load(open(f"{OUT}/{tag}/metrics.json"))
+    assert m_all["layout"] == "B" and m_all["model"] == model
+    res[label] = m_all["pilot"]
+
+def fmt(a):
+    return f"{a['rate']:5.1%} [{a['ci95'][0]:4.0%},{a['ci95'][1]:4.0%}]"
+
+print("\nLayout B pilot: ASR with 95% CI | task accuracy under attack (n=40 per family)")
+print(f"{'family':34s}" + "".join(f"{label + ' ASR':>22s}{label + ' acc':>10s}" for label in RUNS))
+for fam in ["T1", "T2", "T3", "T4"]:
+    row = f"{fam} {names[fam]:31s}"
+    for label in RUNS:
+        v = res[label]["by_family"][fam]
+        row += f"{fmt(v['attack_success_rate']):>22s}{v['task_accuracy_under_attack']['rate']:>10.1%}"
+    print(row)
+row = f"{'ALL':34s}"
+for label in RUNS:
+    row += f"{fmt(res[label]['attack_success_rate']):>22s}{res[label]['task_accuracy_under_attack']['rate']:>10.1%}"
+print(row)
+```
+
+**Expected output:**
+- For each model: `[evaluate] pilot_layoutB_...: 0 already done, 160 to generate`, then progress lines and a JSON summary.
+- Total time is my estimate, not measured: about 5–8 minutes on a T4 for both models, plus downloads if the models aren't cached in this session.
+- At the end, one table: a row per family plus an `ALL` row, and for each model the ASR with its 95% CI and the task accuracy under attack.
+- The `assert` line confirms that each results file really was produced with layout B and the right model.
+
+**Saved to Drive** in `MyDrive/grpo-inj/pilot_layoutB_1p5b/` and `MyDrive/grpo-inj/pilot_layoutB_0p5b/`: `generations.jsonl`, `metrics.json` (with `layout: "B"` and `model` at the top level) and `run_info.json`.
+
+---
+
 When Cells 2 and 3 are done, send me both `metrics.json` files, or just the printed summaries.
