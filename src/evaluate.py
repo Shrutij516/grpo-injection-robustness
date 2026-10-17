@@ -204,6 +204,11 @@ def run_info(args, device, dtype):
 RESUME_KEYS = ("model", "adapter", "system_prompt", "max_new_tokens")
 
 
+def run_header(args):
+    """Who/what produced these numbers; stored at the top level of metrics.json."""
+    return {"tag": args.tag, **{k: getattr(args, k) for k in RESUME_KEYS}}
+
+
 def check_same_settings(info_path, args):
     if not info_path.exists():
         return
@@ -271,8 +276,7 @@ def main():
 
     wanted = {r["id"] for s in args.splits.split(",") for r in load_rows(s, args.limit)}
     metrics = compute_metrics([g for g in done.values() if g["id"] in wanted])
-    metrics["tag"] = args.tag
-    metrics["system_prompt"] = args.system_prompt
+    metrics.update(run_header(args))
     (out / "metrics.json").write_text(json.dumps(metrics, indent=2) + "\n")
     brief = json.loads(json.dumps(metrics))
     for v in brief.values():  # long per-probe/per-template tables stay in metrics.json

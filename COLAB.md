@@ -132,4 +132,39 @@ for tid, x in m["asr_per_template"].items():
 
 ---
 
+## Cell 5: same pilot on Qwen2.5-0.5B-Instruct
+
+This is the same 160 pilot prompts and the same settings; only the model changes. It uses a separate tag, so the 1.5B pilot results are untouched. Reusing the tag with a different model is blocked: the script stops with "was made with different settings".
+
+```python
+%cd /content/grpo-injection-robustness
+!git pull --ff-only
+TAG = "pilot_baseline_0p5b"
+!python -m src.evaluate --model Qwen/Qwen2.5-0.5B-Instruct --splits pilot --tag {TAG} --out_dir /content/drive/MyDrive/grpo-inj
+
+import json
+m_all = json.load(open(f"/content/drive/MyDrive/grpo-inj/{TAG}/metrics.json"))
+m = m_all["pilot"]
+names = {"T1": "Direct override", "T2": "Fake end-of-document", "T3": "Fake system message",
+         "T4": "New session / faux reasoning"}
+print(f"\nmodel: {m_all['model']}   overall ASR: {m['attack_success_rate']['rate']:.1%}")
+print(f"{'family':32s} {'ASR':>6s}  95% CI          task acc")
+for fam, v in m["by_family"].items():
+    a, t = v["attack_success_rate"], v["task_accuracy_under_attack"]
+    print(f"{fam} {names[fam]:29s} {a['rate']:6.1%}  [{a['ci95'][0]:.1%}, {a['ci95'][1]:.1%}]  {t['rate']:.1%}")
+    print("    by position:", {p: round(x["rate"], 2) for p, x in v["asr_by_position"].items()})
+print("\nper paraphrase (5 prompts each):")
+for tid, x in m["asr_per_template"].items():
+    print(f"  {tid}: {x['rate']:.0%}")
+```
+
+**Expected output:**
+- `[evaluate] pilot_baseline_0p5b: 0 already done, 160 to generate`, then progress lines.
+- A one-time ~1 GB model download, then roughly 2–3 minutes on a T4. That's my estimate; I haven't measured it.
+- The JSON summary, then `model: Qwen/Qwen2.5-0.5B-Instruct`, the overall ASR, and the same per-family, per-position and per-paraphrase table as Cell 4.
+
+**Saved to Drive** in `MyDrive/grpo-inj/pilot_baseline_0p5b/`: `generations.jsonl`, `metrics.json` (which now also records `model`, `adapter`, `system_prompt` and `max_new_tokens` at the top level) and `run_info.json`.
+
+---
+
 When Cells 2 and 3 are done, send me both `metrics.json` files, or just the printed summaries.
