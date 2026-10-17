@@ -9,7 +9,10 @@ from src.data import LAYOUTS, SYSTEM_PROMPT, build_messages
 from src.evaluate import check_same_settings, run_header
 
 DATA = Path(__file__).resolve().parent.parent / "data"
-ROWS = [json.loads(line) for name in ("pilot", "test_attack", "test_clean")
+# Layout stored in each frozen file's "prompt" column.
+STORED = {"pilot": "A", "test_attack": "A", "test_clean": "B", "train": "B",
+          "test_unseen_family": "B", "test_seen_family": "B"}
+ROWS = [dict(json.loads(line), _file=name) for name in STORED
         for line in (DATA / f"{name}.jsonl").open()]
 INJECTED = [r for r in ROWS if r["injected"]]
 
@@ -18,10 +21,10 @@ def user_text(r, layout):
     return build_messages(r["document"], r["question"], SYSTEM_PROMPT, layout)[1]["content"]
 
 
-def test_layout_a_matches_frozen_prompts():
-    # Default layout must reproduce exactly what the frozen files contain.
+def test_stored_prompts_match_their_layout():
+    # The builder must reproduce exactly what each frozen file contains.
     for r in ROWS:
-        assert build_messages(r["document"], r["question"]) == r["prompt"]
+        assert build_messages(r["document"], r["question"], layout=STORED[r["_file"]]) == r["prompt"]
 
 
 @pytest.mark.parametrize("layout", LAYOUTS)

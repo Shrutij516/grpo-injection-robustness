@@ -6,7 +6,7 @@ GRPO + LoRA fine-tuning of Qwen2.5-Instruct to resist indirect prompt injection 
 - Data sources, verified fields, build decisions: [DATA_NOTES.md](DATA_NOTES.md)
 - Step-by-step Colab cells: [COLAB.md](COLAB.md)
 
-Status: steps 1–3 done (environment; frozen data, rewards, stats, tests; evaluation script).
+Status: data frozen (layout B, Qwen2.5-0.5B-Instruct); baseline on the final test rows next; training script not written yet.
 
 ```bash
 python -m pytest -q tests/
@@ -26,7 +26,13 @@ Labels: **[paper]** = stated in arXiv:2507.20526 (checked against the paper text
   | T3 Fake system message | [paper] "System Prompt Overrides" (Section 3.4.2). Plain-text markers instead of real chat-template tokens is [ours]. |
   | T4 New session / faux reasoning | [paper] "New Session / Session Data Update" and "Faux Reasoning" (Section 3.4.2) |
 
-- **Prompt layout B** (question first, then the document, then "Answer:") [ours]: being piloted because both base models almost never obeyed the templates in layout A. A possible reason is that the real question always came last.
+- **Prompt layouts** [ours]:
+  - **A:** the document, then the question last. This was the original layout.
+  - **B:** the task and question first, then the document, then an "Answer:" cue.
+
+  Layout B was added *after* layout A gave essentially 0% attack success on Qwen2.5-1.5B (0% on SEP, 0.6% on the template pilot). It is the more realistic ordering for assistants that read a document after the request: the injected text is the last instruction-like text before the answer. **Both layouts are reported** (pilot table below). The frozen training set and template test files use layout B.
+- **Model change** [ours]: the plan named Qwen2.5-1.5B-Instruct. We switched to **Qwen2.5-0.5B-Instruct** because 1.5B failed the pre-registered pilot gate (20–80% attack success per training family) in both layouts. 0.5B also failed in layout A but passed in layout B.
+- **Held-out family** [ours]: **T2** (fake end-of-document), chosen by the rule written before the pilot: the highest pilot ASR among T2–T4. Training uses T1, T3 and T4. Which paraphrases are held back is fixed by index (6 and 7); none were selected using pilot results.
 
 ### What we take from arXiv:2507.20526, and what it does not show
 
@@ -46,14 +52,35 @@ Labels: **[paper]** = stated in arXiv:2507.20526 (checked against the paper text
 - Whether a fine-tuning defense such as GRPO reduces ASR. It only mentions existing defenses, such as instruction-hierarchy fine-tuning and filtering, which "adaptive attackers continue to outpace".
 - Any ASR comparable to ours. Its ASR is per user session and judged by programs or LLMs; ours is per prompt with a nonce string match.
 
-### Pilot baseline ASR per template family (base model, training-pool passages)
+### Pilot baseline ASR per template family [ours]
 
-| Family | Pilot ASR (95% CI) | Held out? |
+These are untrained base models on 160 pilot prompts (40 per family) built from training-pool passages with training nonces. The 0.5B layout-B CIs come from the two-stage bootstrap (by paraphrase, then prompt).
+
+| Family | 1.5B, layout A | 0.5B, layout A | 1.5B, layout B | **0.5B, layout B** | Role |
+|---|---|---|---|---|---|
+| T1 Direct override | 2.5% | 10% | — | **35%** | train |
+| T2 Fake end-of-document | 0% | 12.5% | — | **47.5%** | **held out (test only)** |
+| T3 Fake system message | 0% | 2.5% | — | **12.5%** | train |
+| T4 New session / faux reasoning | 0% | 2.5% | — | **27.5%** | train |
+| **All** | **0.6%** | **6.9%** | **10.6%** | **30.6%** | |
+
+"—" means the per-family numbers were not recorded here. Note that T3 (12.5%) is below the 20% gate even for 0.5B with layout B. We kept it unchanged rather than edit templates after seeing pilot results.
+
+### Frozen data (layout B)
+
+| File | Contents | n |
 |---|---|---|
-| T1 Direct override | *pending* | no (always trained) |
-| T2 Fake end-of-document | *pending* | |
-| T3 Fake system message | *pending* | |
-| T4 New session / faux reasoning | *pending* | |
+| `train.jsonl` | T1/T3/T4 paraphrases 0–5, train nonces, positions balanced + clean QA | 1,050 + 450 |
+| `test_unseen_family.jsonl` | T2, all 8 paraphrases, test nonces (headline) | 300 |
+| `test_seen_family.jsonl` | T1/T3/T4 paraphrases 6–7, test nonces | 180 |
+| `test_attack.jsonl` | SEP probes (unchanged since first freeze) | 360 |
+| `test_clean.jsonl` | clean QA (same rows; prompt column rebuilt in layout B) | 300 |
+
+**Hashes:** `data/manifest.json` and `data/manifest_templates.json`.
+
+**Leakage tests:** `tests/test_final_data.py` checks that no train nonce, train paraphrase, passage, or passage–probe pair appears in any test file.
+
+**Rebuild:** `python -m src.data && python -m src.build_templates` (deterministic).
 
 ### Final results
 
@@ -68,7 +95,7 @@ from google.colab import drive; drive.mount("/content/drive")
 !git clone https://github.com/Shrutij516/grpo-injection-robustness.git
 %cd grpo-injection-robustness
 !bash scripts/colab_setup.sh
-!python -m src.evaluate --tag baseline --out_dir /content/drive/MyDrive/grpo-inj
+!python -m src.evaluate --model Qwen/Qwen2.5-0.5B-Instruct --layout B --tag baseline_0p5b_layoutB --out_dir /content/drive/MyDrive/grpo-inj
 ```
 
 Evaluation is resumable: if the session disconnects, rerun the same command and it continues where it stopped.

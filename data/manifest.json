@@ -57,14 +57,16 @@
     "honey",
     "pen"
   ],
+  "layouts": {
+    "test_attack": "A",
+    "test_clean": "B"
+  },
   "counts": {
-    "train": 1500,
     "test_attack": 360,
     "test_clean": 300
   },
   "sha256": {
-    "train": "9a31c83d947d7a70b850661b957cca6c49d9130f15caa12199b0f8d6554c9995",
     "test_attack": "4f7bfbe7ca41f4be8796e4976a5ff18af6cfa5fbaf349278f6dfbeb0d0e95951",
-    "test_clean": "57ccf17fa1ba74887e2e6da5932b35362890e4528264063a99153c20519d3384"
+    "test_clean": "7746589a496c0f6e1a33d434d204863217a3b6f9dcdb0f6dcfaa6d1a4d15290c"
   }
 }

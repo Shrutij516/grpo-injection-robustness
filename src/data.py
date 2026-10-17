@@ -12,7 +12,7 @@ Leakage guards:
   - A passage is never paired with a witness it (or its question/answers)
     already contains, so a witness in the output can only come from the attack.
 
-Run:  python -m src.data --out data/
+Run:  python -m src.data --out data/      (then: python -m src.build_templates)
 """
 
 import argparse
@@ -167,6 +167,13 @@ def take_passage(pool: deque, witness):
     raise RuntimeError(f"no passage left without witness {witness!r}")
 
 
+# Prompt layout stored in each file's "prompt" column (see build_messages).
+# test_attack (SEP) keeps its original layout-A bytes; evaluation rebuilds the
+# prompt with --layout anyway. test_clean is stored in layout B, the layout
+# chosen after the pilot (see README).
+STORED_LAYOUT = {"train": "A", "test_attack": "A", "test_clean": "B"}
+
+
 def make_row(split_name, idx, q, probe=None, insistent=None, position=None):
     if probe is None:
         doc, instruction, witness = q["context"], None, None
@@ -176,7 +183,7 @@ def make_row(split_name, idx, q, probe=None, insistent=None, position=None):
         witness = probe["witness"]
     return {
         "id": f"{split_name}-{idx:05d}",
-        "prompt": build_messages(doc, q["question"]),
+        "prompt": build_messages(doc, q["question"], layout=STORED_LAYOUT[split_name]),
         "document": doc,
         "question": q["question"],
         "gold_answers": q["gold_answers"],
@@ -230,7 +237,11 @@ def main():
     test_attack = build_split("test_attack", test_probes, TEST_PER_COMBO, 0, val_pool, rng)
     test_clean = build_split("test_clean", [], 0, N_TEST_CLEAN, val_pool, rng)
 
-    files = {"train": train, "test_attack": test_attack, "test_clean": test_clean}
+    # The SEP *training* split is still built (it advances the RNG exactly as
+    # before, so the test files stay byte-identical) but is no longer written:
+    # training now uses the template attacks from src/build_templates.py.
+    del train
+    files = {"test_attack": test_attack, "test_clean": test_clean}
     hashes = {k: write_jsonl(out / f"{k}.jsonl", v) for k, v in files.items()}
     manifest = {
         "seed": SEED,
@@ -239,6 +250,7 @@ def main():
         "system_prompt": SYSTEM_PROMPT,
         "train_witnesses": sorted(p["witness"] for p in train_probes),
         "test_witnesses": sorted(p["witness"] for p in test_probes),
+        "layouts": {k: STORED_LAYOUT[k] for k in files},
         "counts": {k: len(v) for k, v in files.items()},
         "sha256": hashes,
     }

@@ -217,4 +217,58 @@ print(row)
 
 ---
 
+## Cell 7: baseline on the frozen test rows (0.5B, layout B)
+
+This runs the untrained Qwen2.5-0.5B-Instruct on all frozen test rows, using layout B:
+
+| Test row | File | Prompts |
+|---|---|---|
+| Unseen family (T2, headline) | `test_unseen_family` | 300 |
+| Seen families, new wording | `test_seen_family` | 180 |
+| SEP | `test_attack` | 360 |
+| Clean QA | `test_clean` | 300 |
+
+That's 1,140 prompts in total. Tag: `baseline_0p5b_layoutB`.
+
+```python
+%cd /content/grpo-injection-robustness
+!git pull --ff-only
+!python -m pytest -q tests/
+OUT, TAG = "/content/drive/MyDrive/grpo-inj", "baseline_0p5b_layoutB"
+!python -m src.evaluate --model Qwen/Qwen2.5-0.5B-Instruct --layout B --tag {TAG} --out_dir {OUT}
+
+import json
+m = json.load(open(f"{OUT}/{TAG}/metrics.json"))
+assert m["model"] == "Qwen/Qwen2.5-0.5B-Instruct" and m["layout"] == "B"
+
+def fmt(a):
+    return f"{a['rate']:6.1%}  [{a['ci95'][0]:5.1%}, {a['ci95'][1]:5.1%}]  n={a['n']}"
+
+print(f"\nBaseline: {m['model']}, layout {m['layout']}, untrained")
+print(f"{'row':44s} {'ASR (95% CI)':32s} task acc under attack")
+rows = [("Unseen family T2 (headline)", "test_unseen_family"),
+        ("Seen families T1/T3/T4, new wording", "test_seen_family"),
+        ("SEP probes", "test_attack")]
+for label, split in rows:
+    v = m[split]
+    print(f"{label:44s} {fmt(v['attack_success_rate']):32s} {fmt(v['task_accuracy_under_attack'])}")
+for fam, v in m["test_seen_family"]["by_family"].items():
+    print(f"{'   seen family ' + fam:44s} {fmt(v['attack_success_rate']):32s} {fmt(v['task_accuracy_under_attack'])}")
+c = m["test_clean"]
+print(f"\n{'Clean QA accuracy':44s} {fmt(c['accuracy'])}")
+print(f"{'Clean QA refusal rate':44s} {fmt(c['refusal_rate'])}")
+print(f"{'Clean QA answers > 50 words':44s} {fmt(c['too_long_rate'])}   mean words {c['mean_words']:.1f}")
+```
+
+**Expected output:**
+- First `105 passed`. This confirms the frozen files match their hashes and the leakage tests pass on Colab too.
+- `[evaluate] baseline_0p5b_layoutB: 0 already done, 1140 to generate`, then progress lines.
+- About 6–10 minutes on a T4; that's my estimate, not measured.
+- A table with one row per test set. Attack rows show ASR with its 95% CI and task accuracy under attack; there's a per-family breakdown for the seen-family row, then clean-QA accuracy, refusal rate and long-answer rate.
+- **CI resampling:** attack-row CIs resample paraphrases (or SEP probes) first, then prompts.
+
+**Saved to Drive** in `MyDrive/grpo-inj/baseline_0p5b_layoutB/`: `generations.jsonl`, `metrics.json` (with `model`, `layout` and all breakdowns, including per-paraphrase ASR) and `run_info.json` (including the hashes of all five data files).
+
+---
+
 When Cells 2 and 3 are done, send me both `metrics.json` files, or just the printed summaries.

@@ -1,4 +1,4 @@
-"""Checks on the committed, frozen data files (no network needed)."""
+"""Checks on the frozen SEP attack file and the clean QA file (no network needed)."""
 
 import hashlib
 import json
@@ -17,29 +17,32 @@ def load(name):
     return [json.loads(line) for line in (DATA / f"{name}.jsonl").open()]
 
 
-TRAIN, TEST_ATTACK, TEST_CLEAN = load("train"), load("test_attack"), load("test_clean")
-ALL = TRAIN + TEST_ATTACK + TEST_CLEAN
+TEST_ATTACK, TEST_CLEAN = load("test_attack"), load("test_clean")
+ALL = TEST_ATTACK + TEST_CLEAN
 
 
-@pytest.mark.parametrize("name", ["train", "test_attack", "test_clean"])
+@pytest.mark.parametrize("name", ["test_attack", "test_clean"])
 def test_files_match_manifest_hash(name):
     digest = hashlib.sha256((DATA / f"{name}.jsonl").read_bytes()).hexdigest()
     assert digest == MANIFEST["sha256"][name]
 
 
+def test_sep_file_unchanged_since_first_freeze():
+    # The SEP test file must stay byte-identical to the step-2 freeze.
+    assert MANIFEST["sha256"]["test_attack"] == (
+        "4f7bfbe7ca41f4be8796e4976a5ff18af6cfa5fbaf349278f6dfbeb0d0e95951")
+
+
 def test_counts():
-    assert (len(TRAIN), len(TEST_ATTACK), len(TEST_CLEAN)) == (1500, 360, 300)
-    assert sum(r["injected"] for r in TRAIN) == 1050
+    assert (len(TEST_ATTACK), len(TEST_CLEAN)) == (360, 300)
     assert all(r["injected"] for r in TEST_ATTACK)
     assert not any(r["injected"] for r in TEST_CLEAN)
 
 
-def test_test_attacks_are_unseen_witnesses_and_articles():
-    train_w = {r["witness"] for r in TRAIN if r["injected"]}
+def test_sep_test_witnesses_are_the_15_held_out():
     test_w = {r["witness"] for r in TEST_ATTACK}
-    assert len(train_w) == 35 and len(test_w) == 15 and not train_w & test_w
-    test_titles = {r["title"] for r in TEST_ATTACK + TEST_CLEAN}
-    assert not {r["title"] for r in TRAIN} & test_titles
+    assert test_w == set(MANIFEST["test_witnesses"])
+    assert len(test_w) == 15 and not test_w & set(MANIFEST["train_witnesses"])
 
 
 def test_no_passage_reused():
@@ -47,10 +50,9 @@ def test_no_passage_reused():
     assert len(ids) == len(set(ids))
 
 
-@pytest.mark.parametrize("rows,per_combo", [(TRAIN, 5), (TEST_ATTACK, 4)])
-def test_balanced_over_witness_insistence_position(rows, per_combo):
-    combos = Counter((r["witness"], r["insistent"], r["position"]) for r in rows if r["injected"])
-    assert set(combos.values()) == {per_combo}
+def test_sep_balanced_over_witness_insistence_position():
+    combos = Counter((r["witness"], r["insistent"], r["position"]) for r in TEST_ATTACK)
+    assert set(combos.values()) == {4}
 
 
 def test_gold_answer_findable_and_witness_only_from_injection():

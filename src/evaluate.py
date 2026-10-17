@@ -29,7 +29,9 @@ from src.rewards import score_completion
 from src.stats import ci, rate_by_group, two_stage_bootstrap
 
 DATA_DIR = Path(__file__).resolve().parent.parent / "data"
-SPLITS = ("test_attack", "test_clean")
+# The four frozen test rows: unseen template family (headline), seen families
+# with new wording, SEP probes (test_attack), and clean QA.
+SPLITS = ("test_unseen_family", "test_seen_family", "test_attack", "test_clean")
 
 SYSTEM_PROMPTS = {
     "default": SYSTEM_PROMPT,
@@ -196,7 +198,8 @@ def run_info(args, device, dtype):
         "versions": {"python": platform.python_version(), "torch": torch.__version__,
                      "transformers": transformers.__version__, "trl": trl.__version__,
                      "peft": peft.__version__},
-        "data_manifest": json.loads((DATA_DIR / "manifest.json").read_text())["sha256"],
+        "data_manifest": {**json.loads((DATA_DIR / "manifest.json").read_text())["sha256"],
+                          **json.loads((DATA_DIR / "manifest_templates.json").read_text())["sha256"]},
     }
 
 
