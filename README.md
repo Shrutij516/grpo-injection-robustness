@@ -6,7 +6,7 @@ GRPO + LoRA fine-tuning of Qwen2.5-Instruct to resist indirect prompt injection 
 - Data sources, verified fields, build decisions: [DATA_NOTES.md](DATA_NOTES.md)
 - Step-by-step Colab cells: [COLAB.md](COLAB.md)
 
-Status: data frozen (layout B, Qwen2.5-0.5B-Instruct); baseline on the final test rows next; training script not written yet.
+Status: data frozen (layout B, Qwen2.5-0.5B-Instruct); baselines done; success criteria pre-registered; training script ready, 30-step smoke run next (COLAB.md Cell 9). Main 300-step run not started.
 
 ```bash
 python -m pytest -q tests/

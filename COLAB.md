@@ -41,7 +41,7 @@ else:
 - `GPU: Tesla T4, 15360 MiB`
 - `Mounted at /content/drive`
 - The latest commit hash and message
-- A few quiet minutes of pip installs, then `122 passed`
+- A few quiet minutes of pip installs, then `141 passed`
 - Package versions: `transformers 5.18.0`, `trl 1.14.2`, `peft 0.21.2`, `accelerate 1.15.0`, `datasets 5.0.1`
 - `cuda available: True` and `gpu: Tesla T4`
 
@@ -261,7 +261,7 @@ print(f"{'Clean QA answers > 50 words':44s} {fmt(c['too_long_rate'])}   mean wor
 ```
 
 **Expected output:**
-- First `122 passed`. This confirms the frozen files match their hashes and the leakage tests pass on Colab too.
+- First `141 passed`. This confirms the frozen files match their hashes and the leakage tests pass on Colab too.
 - `[evaluate] baseline_0p5b_layoutB: 0 already done, 1140 to generate`, then progress lines.
 - About 6–10 minutes on a T4; that's my estimate, not measured.
 - A table with one row per test set. Attack rows show ASR with its 95% CI and task accuracy under attack; there's a per-family breakdown for the seen-family row, then clean-QA accuracy, refusal rate and long-answer rate.
@@ -286,13 +286,62 @@ OUT, TAG = "/content/drive/MyDrive/grpo-inj", "baseline_0p5b_layoutB_defense_v2"
 ```
 
 **Expected output:**
-- `122 passed`.
+- `141 passed`.
 - `[evaluate] baseline_0p5b_layoutB_defense_v2: 0 already done, 1140 to generate`, then progress lines and the JSON summary. It should take about as long as Cell 7.
 - A table in the same format as Cell 7. Its first line says `system prompt 'defense'` and `untrained`, so you can confirm which run it is.
 
 **Comparing with Cell 7:** to print the plain-prompt baseline in the same format, run `!python -m src.summary --tag baseline_0p5b_layoutB --out_dir {OUT}`.
 
 **Saved to Drive** in `MyDrive/grpo-inj/baseline_0p5b_layoutB_defense_v2/`: `generations.jsonl`, `metrics.json` and `run_info.json`. Both JSON files now record the sha256 of every evaluated data file, and a resume is refused if any of those files changed.
+
+---
+
+## Cell 9: GRPO smoke run (30 steps, training data only)
+
+This runs exactly the approved configuration (`configs/grpo.yaml`) and stops after 30 steps. The learning-rate schedule is the same as in the full 300-step run, so this really is its first 30 steps. It then prints the pre-registered checks and saves the training-curve plot. **No test data is used.** The smoke checkpoints are *not* reused; the main run starts fresh in its own folder.
+
+```python
+%cd /content/grpo-injection-robustness
+!git pull --ff-only
+!python -m pytest -q
+OUT = "/content/drive/MyDrive/grpo-inj"
+RUN = f"{OUT}/train_smoke_seed1"
+# If a second smoke run is needed (the one allowed change), use a NEW folder, e.g.:
+#   RUN = f"{OUT}/train_smoke_seed1_temp1"  and add  --set grpo.temperature=1.0
+#   RUN = f"{OUT}/train_smoke_seed1_lr1e-4" and add  --set grpo.learning_rate=1e-4
+!python -m src.train_grpo --output_dir {RUN} --stop_after 30
+!python -m src.smoke_check --run_dir {RUN}
+!python -m src.plot_training --run_dir {RUN}
+from IPython.display import Image, display
+display(Image(f"{RUN}/reward_curve.png"))
+```
+
+**Expected output:**
+- `141 passed`. The tests use a tiny model on CPU, take about 20 s, and download a few MB the first time.
+- `[train] starting fresh -> .../train_smoke_seed1`, then a progress bar and one log dict per step with `reward`, the `rewards/...` components, `kl`, `train/attack_rate` and so on.
+- My estimate is about **10–20 s per step**, so roughly 5–10 minutes plus model loading; this run measures the real number.
+- **If Colab disconnects,** rerun the cell. It resumes from the last checkpoint and refuses to resume if the config or training file changed.
+
+**The smoke check prints:**
+- **Hard-stop checks,** each `ok` or `FAIL`: non-finite loss or gradient norm, KL > 1.0, training refusal rate > 20% (steps 21–30), and mean answer < 2 words (steps 21–30).
+- **Reward moves? (steps 1–10 vs 21–30).** Training attack rate must drop ≥ 5 points, or mean total reward must rise ≥ 0.10. It also shows the share of groups with zero reward variance.
+- **Timing:** median seconds per step, projected minutes for 300 steps, and peak GPU memory.
+- **DECISION,** one of:
+  - `PASS`: proceed to the main run.
+  - `STOP`: a hard stop fired.
+  - `CHANGE`: make the one allowed change. Raise temperature to 1.0 if ≥ 50% of groups had zero variance; otherwise raise LR to 1e-4.
+  - `FALLBACK`: a second smoke run also failed, so switch to rejection-sampling fine-tuning.
+
+**The plot:** `reward_curve.png` is shown inline. It has four panels: reward (total and components), attack rate on training prompts with the near-miss rate, KL, and answer length.
+
+**Saved to Drive** in `MyDrive/grpo-inj/train_smoke_seed1/`:
+- `run_config.json`: the resolved config, train-file hash, git commit and versions
+- `log_history.jsonl`: every step
+- `samples.jsonl`: sample answers at steps 1 and 25
+- `checkpoint-25/` and `checkpoint-30/`: LoRA adapter + optimizer state
+- `reward_curve.png`
+
+**What to send me:** the smoke-check printout and the plot. Don't start the 300-step run until we've looked at them together.
 
 ---
 
