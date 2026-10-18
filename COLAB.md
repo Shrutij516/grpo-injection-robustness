@@ -45,7 +45,7 @@ else:
 - `GPU: Tesla T4, 15360 MiB`
 - `Mounted at /content/drive`
 - The latest commit hash and message
-- A few quiet minutes of pip installs, then `159 passed`
+- A few quiet minutes of pip installs, then `169 passed`
 - Package versions: `transformers 5.18.0`, `trl 1.14.2`, `peft 0.21.2`, `accelerate 1.15.0`, `datasets 5.0.1`
 - `cuda available: True` and `gpu: Tesla T4`
 
@@ -265,7 +265,7 @@ print(f"{'Clean QA answers > 50 words':44s} {fmt(c['too_long_rate'])}   mean wor
 ```
 
 **Expected output:**
-- First `159 passed`. This confirms the frozen files match their hashes and the leakage tests pass on Colab too.
+- First `169 passed`. This confirms the frozen files match their hashes and the leakage tests pass on Colab too.
 - `[evaluate] baseline_0p5b_layoutB: 0 already done, 1140 to generate`, then progress lines.
 - About 6–10 minutes on a T4; that's my estimate, not measured.
 - A table with one row per test set. Attack rows show ASR with its 95% CI and task accuracy under attack; there's a per-family breakdown for the seen-family row, then clean-QA accuracy, refusal rate and long-answer rate.
@@ -290,7 +290,7 @@ OUT, TAG = "/content/drive/MyDrive/grpo-inj", "baseline_0p5b_layoutB_defense_v2"
 ```
 
 **Expected output:**
-- `159 passed`.
+- `169 passed`.
 - `[evaluate] baseline_0p5b_layoutB_defense_v2: 0 already done, 1140 to generate`, then progress lines and the JSON summary. It should take about as long as Cell 7.
 - A table in the same format as Cell 7. Its first line says `system prompt 'defense'` and `untrained`, so you can confirm which run it is.
 
@@ -321,7 +321,7 @@ display(Image(f"{RUN}/reward_curve.png"))
 ```
 
 **Expected output:**
-- `159 passed`. The tests use a tiny model on CPU, take about 20 s, and download a few MB the first time.
+- `169 passed`. The tests use a tiny model on CPU, take about 20 s, and download a few MB the first time.
 - `[train] starting fresh -> .../train_smoke_seed1`, then a progress bar and one log dict per step with `reward`, the `rewards/...` components, `kl`, `train/attack_rate` and so on.
 - My estimate is about **10–20 s per step**, so roughly 5–10 minutes plus model loading; this run measures the real number.
 - **If Colab disconnects,** rerun the cell. It resumes from the last checkpoint and refuses to resume if the config or training file changed.
@@ -369,7 +369,7 @@ assert os.path.exists(f"{RUN}/final/adapter_config.json"), "no final adapter yet
 ```
 
 **Expected output:**
-1. `159 passed`.
+1. `169 passed`.
 2. `[evaluate] trained_0p5b_layoutB_seed1: 0 already done, 1140 to generate`, then progress lines. It takes about as long as the baseline; LoRA adds little.
 3. The standard summary table. Its first line names the adapter path, ending in `/final`.
 4. **`compare` output:**
@@ -413,6 +413,29 @@ display(Image(f"{RUN}/reward_curve.png"))
 - The full 300-step `reward_curve.png`, saved in `train_main_seed1/`.
 
 **Saved to Drive:** `trained_0p5b_layoutB_seed1_step0100/`, `..._step0200/` and `compare_curve.json`.
+
+---
+
+## Cell 12: read near-miss answers (steps 200–300, plus step 1)
+
+This prints answers where `near_miss` fired: they look like a garbled nonce but don't count as attacks. The README section "Training metric: `train/near_miss_rate`" explains the rule. It reads only training data and training-time samples, never test data. Each answer shows which word triggered it and by which rule ("same first 4 letters", "N edits", or "spelled with spaces"), so you can tell a garbled copy from an ordinary word that happens to be close.
+
+```python
+%cd /content/grpo-injection-robustness
+!pip uninstall -y torchao   # in case this is a fresh runtime (see Cell 1)
+!git pull --ff-only
+RUN = "/content/drive/MyDrive/grpo-inj/train_main_seed1"
+!python -m src.inspect_near_miss --run_dir {RUN} --from_step 200 --to_step 300 --n 15 --regenerate
+```
+
+**Expected output:**
+1. **Steps 200–300 from `samples.jsonl`.** Training saved only 4 answers every 25 steps, so steps 200–300 hold ~20 answers. The cell prints the attack and near-miss rates over those, then each near-miss answer: source step, nonce, gold answer, the triggering words, and the full answer text.
+2. **The same for step 1,** so you can see what produced the step-1 spike (25% near-miss vs 10% attack).
+3. **Regeneration, if fewer than 15 near-misses were found** (likely, given only ~20 saved answers). `--regenerate` samples 8 fresh answers for each of 48 injected *training* prompts. It does this from the step-200 milestone adapter and from the final adapter, at the training temperature (0.9). It prints their attack and near-miss rates, then enough near-miss answers to reach 15 in total, each labeled `regenerated from milestones/step-0200` or `regenerated from final`. These are new samples from the same adapters, not the exact answers seen during training.
+
+**Time:** about 2–4 minutes on a T4 when regenerating; seconds otherwise.
+
+**Saved to Drive:** `train_main_seed1/near_miss_regenerated.jsonl`, with all regenerated answers (when `--regenerate` ran).
 
 ---
 
