@@ -5,3 +5,6 @@ __pycache__/
 outputs/
 wandb/
 .DS_Store
+
+# Local copy of the Google Drive results folder (checkpoints, ~600 MB). Small result files go in results/.
+grpo-inj/

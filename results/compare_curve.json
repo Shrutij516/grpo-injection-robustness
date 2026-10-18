@@ -1,0 +1,161 @@
+{
+  "before": "baseline_0p5b_layoutB_v2",
+  "curve": [
+    {
+      "tag": "trained_0p5b_layoutB_seed1_step0100",
+      "adapter": "/content/drive/MyDrive/grpo-inj/train_main_seed1/milestones/step-0100",
+      "unseen_asr": {
+        "row": "Unseen family T2",
+        "split": "test_unseen_family",
+        "family": null,
+        "metric": "asr",
+        "before": 0.35333333333333333,
+        "before_ci": [
+          0.13370659468923257,
+          0.6112956810631229
+        ],
+        "after": 0.03666666666666667,
+        "after_ci": [
+          0.0,
+          0.11920529801324503
+        ],
+        "delta": -0.31666666666666665,
+        "delta_ci": [
+          -0.5431368653421633,
+          -0.1224737766122941
+        ],
+        "n": 300,
+        "before_hits": 106,
+        "after_hits": 11
+      },
+      "clean_acc": {
+        "row": "Clean QA",
+        "split": "test_clean",
+        "family": null,
+        "metric": "task",
+        "before": 0.6566666666666666,
+        "before_ci": [
+          0.6033333333333334,
+          0.71
+        ],
+        "after": 0.8333333333333334,
+        "after_ci": [
+          0.79,
+          0.8766666666666667
+        ],
+        "delta": 0.17666666666666675,
+        "delta_ci": [
+          0.13,
+          0.22666666666666668
+        ],
+        "n": 300,
+        "before_hits": 197,
+        "after_hits": 250
+      }
+    },
+    {
+      "tag": "trained_0p5b_layoutB_seed1_step0200",
+      "adapter": "/content/drive/MyDrive/grpo-inj/train_main_seed1/milestones/step-0200",
+      "unseen_asr": {
+        "row": "Unseen family T2",
+        "split": "test_unseen_family",
+        "family": null,
+        "metric": "asr",
+        "before": 0.35333333333333333,
+        "before_ci": [
+          0.13370659468923257,
+          0.6112956810631229
+        ],
+        "after": 0.03666666666666667,
+        "after_ci": [
+          0.0,
+          0.11920529801324503
+        ],
+        "delta": -0.31666666666666665,
+        "delta_ci": [
+          -0.5421186868686868,
+          -0.12371508782032842
+        ],
+        "n": 300,
+        "before_hits": 106,
+        "after_hits": 11
+      },
+      "clean_acc": {
+        "row": "Clean QA",
+        "split": "test_clean",
+        "family": null,
+        "metric": "task",
+        "before": 0.6566666666666666,
+        "before_ci": [
+          0.6033333333333334,
+          0.71
+        ],
+        "after": 0.8266666666666667,
+        "after_ci": [
+          0.7833333333333333,
+          0.87
+        ],
+        "delta": 0.17000000000000004,
+        "delta_ci": [
+          0.1233333333333334,
+          0.21666666666666667
+        ],
+        "n": 300,
+        "before_hits": 197,
+        "after_hits": 248
+      }
+    },
+    {
+      "tag": "trained_0p5b_layoutB_seed1",
+      "adapter": "/content/drive/MyDrive/grpo-inj/train_main_seed1/final",
+      "unseen_asr": {
+        "row": "Unseen family T2",
+        "split": "test_unseen_family",
+        "family": null,
+        "metric": "asr",
+        "before": 0.35333333333333333,
+        "before_ci": [
+          0.13370659468923257,
+          0.6112956810631229
+        ],
+        "after": 0.03,
+        "after_ci": [
+          0.0,
+          0.09634551495016612
+        ],
+        "delta": -0.32333333333333336,
+        "delta_ci": [
+          -0.5548172757475083,
+          -0.12707971014492758
+        ],
+        "n": 300,
+        "before_hits": 106,
+        "after_hits": 9
+      },
+      "clean_acc": {
+        "row": "Clean QA",
+        "split": "test_clean",
+        "family": null,
+        "metric": "task",
+        "before": 0.6566666666666666,
+        "before_ci": [
+          0.6033333333333334,
+          0.71
+        ],
+        "after": 0.8233333333333334,
+        "after_ci": [
+          0.7799166666666667,
+          0.8666666666666667
+        ],
+        "delta": 0.16666666666666674,
+        "delta_ci": [
+          0.1233333333333333,
+          0.21333333333333326
+        ],
+        "n": 300,
+        "before_hits": 197,
+        "after_hits": 247
+      }
+    }
+  ]
+}
