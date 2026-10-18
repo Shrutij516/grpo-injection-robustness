@@ -64,6 +64,8 @@ def load_model(model_name, adapter, device, dtype):
         tok.pad_token = tok.eos_token
     model = AutoModelForCausalLM.from_pretrained(model_name, dtype=dtype).to(device)
     if adapter:
+        from src.env_check import require_compatible_torchao
+        require_compatible_torchao()
         from peft import PeftModel
         model = PeftModel.from_pretrained(model, adapter)
     model.eval()

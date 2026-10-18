@@ -29,15 +29,19 @@ import subprocess
 import time
 from pathlib import Path
 
-import torch
-import yaml
-from datasets import load_dataset
-from peft import LoraConfig
-from transformers import AutoModelForCausalLM, AutoTokenizer, TrainerCallback
-from transformers.trainer_utils import get_last_checkpoint
-from trl import GRPOConfig, GRPOTrainer
+from src.env_check import print_versions, require_compatible_torchao
 
-from src.rewards import (
+require_compatible_torchao()  # before peft is imported (Colab's torchao 0.10 breaks it)
+
+import torch  # noqa: E402
+import yaml  # noqa: E402
+from datasets import load_dataset  # noqa: E402
+from peft import LoraConfig  # noqa: E402
+from transformers import AutoModelForCausalLM, AutoTokenizer, TrainerCallback  # noqa: E402
+from transformers.trainer_utils import get_last_checkpoint  # noqa: E402
+from trl import GRPOConfig, GRPOTrainer  # noqa: E402
+
+from src.rewards import (  # noqa: E402
     MAX_ANSWER_WORDS, completion_text, edit_distance, is_refusal, normalize,
     reward_refusal, reward_resist, reward_task, witness_present, word_count,
 )
@@ -264,6 +268,7 @@ def main():
                     help="override a config value, e.g. grpo.temperature=1.0 (recorded in run_config.json)")
     ap.add_argument("--use_cpu", action="store_true")
     args = ap.parse_args()
+    print_versions("[train]")
     cfg = load_config(args.config, args.set)
     train(copy.deepcopy(cfg), args.output_dir, args.stop_after, args.use_cpu)
 
